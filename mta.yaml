@@ -1,0 +1,80 @@
+_schema-version: "3.1"
+ID: capfullstack02
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: capfullstack02-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+   - name: uaa_capfullstack02
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+  build-parameters:
+    builder: npm
+- name: capfullstack02-approuter
+  type: approuter.nodejs
+  path: app/
+  requires:
+  - name: capfullstack02_html_repo_runtime
+  - name: uaa_capfullstack02
+  - name: capfullstack02-destination-service
+  - name: srv-api
+    group: destinations
+    properties:
+      forwardAuthToken: true
+      strictSSL: true
+      name: srv-api
+      url: '~{srv-url}'
+  parameters:
+    disk-quota: 1024M
+    memory: 1024M
+resources:
+- name: capfullstack02-repo-host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: capfullstack02-html5-srv
+    service-plan: app-host
+- name: capfullstack02-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: false
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: capfullstack02-destination-service
+    service-plan: lite
+- name: capfullstack02_html_repo_runtime
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-plan: app-runtime
+- name: uaa_capfullstack02
+  type: org.cloudfoundry.managed-service
+  parameters:
+    path: ./xs-security.json
+    service: xsuaa
+    service-name: capfullstack02-xsuaa-service
+    service-plan: application
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npx cds build --production
